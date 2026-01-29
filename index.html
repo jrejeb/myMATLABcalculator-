@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EE98 Exam Calculator</title>
+  
+  <!-- Math.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
+  
+  <style>
+    :root {
+      --primary: #0056b3;
+      --accent: #28a745;
+      --bg: #f8f9fa;
+      --terminal-bg: #1e1e1e;
+      --terminal-text: #00ff00;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background: var(--bg);
+      color: #333;
+    }
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 10px;
+    }
+    h1 { margin: 0; color: #333; font-size: 1.5rem; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-top: 5px; }
+    /* Quick Reference Accordion */
+    details {
+      margin-bottom: 20px;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    summary {
+      padding: 12px 15px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #856404;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    summary::before {
+      content: '▶'; 
+      font-size: 0.8rem;
+      transition: transform 0.2s;
+    }
+    details[open] summary::before { transform: rotate(90deg); }
+    .reference-content {
+      padding: 15px;
+      background: #fdfdfe;
+      border-top: 1px solid #ffeeba;
+      font-family: 'Consolas', monospace;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      color: #333;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    /* Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      height: 65vh;
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .panel-header {
+      background: #eee;
+      padding: 10px 15px;
+      font-weight: bold;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Editor & Terminal */
+    #codeInput {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    #outputTerminal {
+      flex: 1;
+      padding: 15px;
+      background: var(--terminal-bg);
+      color: var(--terminal-text);
+      font-family: 'Consolas', monospace;
+      white-space: pre-wrap;
+      overflow-y: auto;
+      font-size: 14px;
+      border-top: 5px solid #333;
+    }
+    /* Buttons */
+    .button-bar {
+      padding: 10px 15px;
+      background: #f1f1f1;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid #ddd;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-weight: 600;
+      transition: 0.2s;
+    }
+    .btn-large {
+      padding: 10px 20px;
+      font-size: 1rem;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-run { background: var(--primary); }
+    .btn-run:hover { background: #004494; }
+    .btn-clear { background: #dc3545; }
+    .btn-clear:hover { background: #a71d2a; }
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      color: #333;
+      background: #e2e6ea;
+      border: 1px solid #ced4da;
+    }
+    .btn-small:hover { background: #dbe0e5; border-color: #adb5bd; }
+    #successMsg {
+      display: none;
+      color: var(--accent);
+      font-size: 0.85rem;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      #codeInput, #outputTerminal { height: 400px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0056b3" stroke-width="2">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>
+    <div>
+      <h1>EE98 Exam Calculator</h1>
+      <div class="subtitle">Enter your parameters here</div>
+    </div>
+  </header>
+  
+  <details>
+    <summary>💡 Click Here for MATLAB Quick Reference (DC & AC Circuits)</summary>
+    <div class="reference-content">% ****** EE98 EXAM CALCULATOR to the RESCUE!**********************  
+%                       Author: Jalel Rejeb, Spring 2026  
+% *****************************************************************
+% ------PART 1: DC Circuits---------
+%====================================
+   % 1. Voltage Division (vd)
+R1=10; R2 = 30; R3 = 20;  Vs = 10; Is = 5;  
+V_R2 = (R2*Vs)/(R1+ R2)
+   % 2. Current Division (cd)
+   I_R2= (Is*R1)/(R1+R2)
+   
+   % Req for R1//R2
+   Req = R1*R2/(R1+R2)
+   
+   % Req for R1//R2//R3 
+   Req =1/(1/R1 +1/R2+ 1/R3) 
+ 
+   % 3. MATRIX SOLVER (Nodal/Mesh…) 
+A = [ 10, -5; -5, 15 ];   % Coefficients
+b = [ 10; 5 ];            % Sources
+x = A \ b                 % RESULT: Circuit Unknowns
+% ==========================================
+% --- PART 2: AC CIRCUITS & COMPLEX NUMBERS ---
+% ==========================================
+% 1 . Complex Number Arithmetic
+j = 1i;             % Define j 
+z= complex(2, -8);  % z = 2 -j8
+z_real = real(z)    % real part
+z_imag= imag(z)     % imaginary part
+z_mag = abs(z)      % magnitude |z|
+z_angle = angle(z)  % angle (radians)
+% Convert to Polar 
+[theta, rho] = cart2pol(real(z), imag(z)); 
+% Convert back to Cartesian
+[x_val, y_val] = pol2cart(theta, rho);
+% Angle Conversions
+theta_deg = rad2deg(theta)
+theta_rad = deg2rad(theta_deg)
+% Wrapping Angles
+theta_in = wrapTo360(theta_deg)  % [0, 360] 
+theta_in = wrapTo180(theta_deg)  % [-180, 180] 
+theta_in = wrapToPi(theta_rad)   % [-pi, pi] 
+theta_in = wrapTo2Pi(theta_rad)  % [0, 2pi]
+theta_in(theta_in == pi) = -pi   %  to make sure angle [-pi,pi) 
+% 2. Impedance Formulas (Zeq) 
+w = 2; L = 2; C = 0.5; R = 1;
+Z_L = j*w*L;
+Z_C = 1/(j*w*C); 
+Zeq = Z_L + (Z_C * 1 / (1 + Z_C)) 
+</div>
+  </details>
+  
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span>MATLAB/Octave Code Editor 📝</span>
+        <span id="successMsg">Copied!</span>
+      </div>
+      
+      <textarea id="codeInput" spellcheck="false" placeholder="% Enter your parameters here..."></textarea>
+      <div class="button-bar">
+        <button class="btn-large btn-run" onclick="runCode()">▶ Run Code</button>
+        <button class="btn-large btn-clear" onclick="clearCode()">🗑 Clear</button>
+        
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-small" onclick="copyCode()">📋 Copy Code</button>
+        <button class="btn-small" onclick="window.open('https://grader.mathworks.com/', '_blank')">🔗 Open MATLAB Grader</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Output Terminal 📟</div>
+      <div id="outputTerminal">Ready...</div>
+    </div>
+  </div>
+  
+  <script>
+// ═══════════════════════════════════════════════════════════════════
+// EE98 Exam Calculator - V9 (Refined & Fixed)
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. SAFETY CHECK
+if (typeof math === 'undefined') {
+  const terminal = document.getElementById('outputTerminal');
+  if(terminal) terminal.textContent = "⚠️ CRITICAL ERROR: Math.js library is missing!";
+  throw new Error("Math.js not loaded");
+}
+
+// 2. CONFIGURE MATLAB FUNCTIONS
+math.import({
+  // Complex Parts
+  real: function(z) { return math.re(z); },
+  imag: function(z) { return math.im(z); },
+  angle: function(z) { return math.arg(z); },
+  conj:  function(z) { return math.conj(z); },
+  
+  // Coordinate Transforms
+  cart2pol: function(x, y) {
+     const r = math.sqrt(math.add(math.square(x), math.square(y)));
+     const th = math.atan2(y, x);
+     return [th, r]; 
+  },
+  pol2cart: function(th, r) {
+     const x = math.multiply(r, math.cos(th));
+     const y = math.multiply(r, math.sin(th));
+     return [x, y];
+  },
+
+  // Units
+  rad2deg: function(rad) { return math.unit(rad, 'rad').toNumber('deg'); },
+  deg2rad: function(deg) { return math.unit(deg, 'deg').toNumber('rad'); },
+  
+  // Angle Wrapping Helpers
+  wrapTo180: function(deg) { 
+    return deg - 360 * math.floor((deg + 180) / 360); 
+  },
+  wrapTo360: function(deg) { 
+    return deg - 360 * math.floor(deg / 360); 
+  },
+  wrapToPi: function(rad) {
+    const PI = math.pi;
+    return rad - 2 * PI * math.floor((rad + PI) / (2 * PI));
+  },
+  wrapTo2Pi: function(rad) {
+    const PI = math.pi;
+    return rad - 2 * PI * math.floor(rad / (2 * PI));
+  }
+}, { override: true });
+
+let scope = {};
+
+// ─── MAIN FUNCTIONS (Global Scope) ───
+
+function runCode() {
+  const codeInput = document.getElementById('codeInput');
+  const terminal = document.getElementById('outputTerminal');
+  
+  if (!codeInput || !terminal) return; // Safety
+  
+  const code = codeInput.value;
+  if (!code.trim()) {
+    terminal.textContent = '⚠️ No code to run!';
+    return;
+  }
+  
+  try {
+    terminal.textContent = '⏳ Running...\n\n';
+    const output = executeMatlabCode(code);
+    terminal.textContent = output;
+  } catch (error) {
+    terminal.textContent += '\n❌ SYSTEM ERROR:\n' + error.message;
+  }
+}
+
+function clearCode() {
+  if(confirm("Clear editor?")) {
+    document.getElementById('codeInput').value = '';
+    document.getElementById('outputTerminal').textContent = 'Ready...';
+    scope = {};
+  }
+}
+
+function copyCode() {
+  const code = document.getElementById('codeInput').value;
+  navigator.clipboard.writeText(code);
+  const msg = document.getElementById('successMsg');
+  if(msg) {
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  }
+}
+
+// ─── INTERPRETER ENGINE ───
+
+function executeMatlabCode(code) {
+  let outputBuffer = '';
+  const lines = code.split('\n');
+  let isSkipping = false; // For IF blocks
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // 1. Remove comments
+    const commentIndex = line.indexOf('%');
+    if (commentIndex !== -1) line = line.substring(0, commentIndex);
+    line = line.trim();
+    if (!line) continue;
+
+    // 2. Handle System Commands
+    if (line.match(/^clear/i)) { scope = {}; continue; }
+    if (line.match(/^clc/i)) { outputBuffer = ''; continue; }
+
+    try {
+      // 3. Control Flow: END
+      if (line === 'end') { 
+         isSkipping = false; 
+         continue; 
+      }
+
+      // 4. Control Flow: IF
+      if (line.startsWith('if ')) {
+         if (isSkipping) continue; // Nested if inside false block remains skipped
+         
+         const condition = line.substring(3).trim();
+         const res = math.evaluate(condition, scope);
+         
+         // Check truthy (numbers != 0, true, complex non-zero)
+         let isTrue = false;
+         if (res === true) isTrue = true;
+         else if (typeof res === 'number' && res !== 0) isTrue = true;
+         else if (res && res.isComplex && (res.re !== 0 || res.im !== 0)) isTrue = true;
+         
+         if (!isTrue) isSkipping = true;
+         continue;
+      }
+
+      // If inside a FALSE block, skip execution
+      if (isSkipping) continue;
+
+      // 5. Syntax Translations
+      
+      // Matrix Solver (A \ b -> lusolve(A, b))
+      if (line.includes('\\')) {
+         line = line.replace(/(\w+)\s*\\\s*(\w+)/g, 'lusolve($1, $2)');
+      }
+
+      // Multiple Assignment: [th, r] = cart2pol(...)
+      const multiAssignMatch = line.match(/^\[(.*?)]\s*=\s*(.+)$/);
+      if (multiAssignMatch) {
+         const vars = multiAssignMatch[1].split(',').map(v => v.trim());
+         let expression = multiAssignMatch[2].trim();
+         const silent = expression.endsWith(';');
+         if (silent) expression = expression.slice(0, -1);
+         
+         const result = math.evaluate(expression, scope);
+         
+         if (Array.isArray(result) || (result && result.isMatrix)) {
+            const data = result.valueOf(); // Get raw array if matrix
+            vars.forEach((varName, index) => {
+               if (index < data.length) {
+                 scope[varName] = data[index];
+                 if (!silent) outputBuffer += `${varName} =\n${formatResult(data[index])}\n\n`;
+               }
+            });
+         }
+         continue;
+      }
+
+      // Logical Indexing: theta(theta == -pi) = pi
+      // Regex catches: variable ( condition ) = value
+      const logicIndexMatch = line.match(/^([a-zA-Z0-9_]+)\s*\((.+)\)\s*=\s*(.+)$/);
+      // Ensure it's not a function call or display
+      if (logicIndexMatch && !line.startsWith('disp') && !line.startsWith('fprintf')) {
+          const varName = logicIndexMatch[1];
+          const condStr = logicIndexMatch[2];
+          const rhsStr  = logicIndexMatch[3];
+
+          if (scope[varName] !== undefined) {
+             // Clean semicolon from RHS
+             let rhsClean = rhsStr.endsWith(';') ? rhsStr.slice(0, -1) : rhsStr;
+             let rhsVal = math.evaluate(rhsClean, scope);
+             let condVal = math.evaluate(condStr, scope);
+             let currVal = scope[varName];
+
+             // Apply logic
+             // 1. If scalar variable
+             if (typeof currVal === 'number' || (currVal && currVal.isComplex)) {
+                if (condVal === true || condVal === 1) {
+                   scope[varName] = rhsVal;
+                }
+             } 
+             // 2. If Matrix/Array
+             else {
+                let valArray = currVal.isMatrix ? currVal.valueOf() : currVal;
+                let condArray = (condVal.isMatrix || Array.isArray(condVal)) ? condVal.valueOf() : condVal;
+                
+                // Ensure arrays match size (simplified check)
+                if (Array.isArray(valArray) && Array.isArray(condArray)) {
+                   // Flatten mapping for 1D arrays
+                   const newValArray = valArray.map((v, idx) => {
+                      return (condArray[idx]) ? rhsVal : v;
+                   });
+                   scope[varName] = currVal.isMatrix ? math.matrix(newValArray) : newValArray;
+                }
+             }
+
+             if (!line.endsWith(';')) {
+                outputBuffer += `${varName} =\n${formatResult(scope[varName])}\n\n`;
+             }
+             continue; // Logic handled, skip standard eval
+          }
+      }
+
+      // 6. Display Functions
+      if (line.startsWith('disp')) {
+         const match = line.match(/disp\s*\((.*)\)/);
+         if (match) {
+           let content = match[1].trim();
+           // Check if string literal
+           if ((content.startsWith("'") && content.endsWith("'")) || 
+               (content.startsWith('"') && content.endsWith('"'))) {
+               outputBuffer += content.slice(1, -1) + '\n';
+           } else {
+               outputBuffer += formatResult(math.evaluate(content, scope)) + '\n';
+           }
+         }
+         continue;
+      }
+      if (line.startsWith('fprintf')) continue; // Ignore fprintf
+
+      // 7. Standard Math Evaluation
+      const suppressOutput = line.endsWith(';');
+      if (suppressOutput) line = line.slice(0, -1);
+
+      const result = math.evaluate(line, scope);
+
+      if (!suppressOutput && result !== undefined) {
+        // Try to guess variable name from "x = ..."
+        const assignMatch = line.match(/^(\w+)\s*=/);
+        const varName = assignMatch ? assignMatch[1] : 'ans';
+        outputBuffer += `${varName} =\n${formatResult(result)}\n\n`;
+      }
+
+    } catch (e) {
+      outputBuffer += `❌ Error on line: "${line}"\n   ${e.message}\n\n`;
+    }
+  }
+  
+  if (!outputBuffer) outputBuffer = '✅ Done.';
+  return outputBuffer;
+}
+
+// ─── HELPER: FORMATTING ───
+function formatResult(val) {
+  if (val === undefined) return 'undefined';
+  
+  // Complex Numbers
+  if (val && val.isComplex) {
+    const re = val.re;
+    const im = val.im;
+    if (Math.abs(im) < 1e-10) return re.toFixed(4);
+    if (Math.abs(re) < 1e-10) return `${im.toFixed(4)}i`;
+    return `${re.toFixed(4)} ${im >= 0 ? '+' : '-'} ${Math.abs(im).toFixed(4)}i`;
+  }
+
+  // Matrices / Arrays
+  if (val && (val.isMatrix || Array.isArray(val))) {
+     const data = val.valueOf(); 
+     if (Array.isArray(data[0])) { // 2D Array
+       return data.map(row => '   ' + row.map(v => formatResult(v).padStart(10)).join('  ')).join('\n');
+     }
+     return '   ' + data.map(v => formatResult(v).padStart(10)).join('\n   ');
+  }
+
+  // Numbers
+  if (typeof val === 'number') return val.toFixed(4);
+  
+  // Boolean / Other
+  return val.toString();
+}
+
+// ─── INIT ───
+window.onload = function() {
+  document.getElementById('codeInput').focus();
+};
+  </script>
+</body>
+</html>
