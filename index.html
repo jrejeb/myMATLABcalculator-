@@ -200,6 +200,8 @@ V_R2 = (R2*Vs)/(R1+ R2)
  
    % 3. MATRIX SOLVER (Nodal/Mesh…) 
 A = [ 10, -5; -5, 15 ];   % Coefficients
+rank_A= rank(A);    % checks how many independent equations  
+det_A = det(A);     % if det(A) == 0 -> not a unique solution (could be none or infinite)    
 b = [ 10; 5 ];            % Sources
 x = A \ b                 % RESULT: Circuit Unknowns
 % ==========================================
@@ -257,8 +259,9 @@ Zeq = Z_L + (Z_C * 1 / (1 + Z_C))
   </div>
   
   <script>
+    // ********************* JALEL JS SCRITPT STARTs HERE ******************
 // ═══════════════════════════════════════════════════════════════════
-// EE98 Exam Calculator - V9 (Refined & Fixed)
+// EE98 Exam Calculator - V13 (MATLAB Indexing Support)
 // ═══════════════════════════════════════════════════════════════════
 
 // 1. SAFETY CHECK
@@ -276,58 +279,92 @@ math.import({
   angle: function(z) { return math.arg(z); },
   conj:  function(z) { return math.conj(z); },
   
-  // Coordinate Transforms
-  cart2pol: function(x, y) {
-     const r = math.sqrt(math.add(math.square(x), math.square(y)));
-     const th = math.atan2(y, x);
-     return [th, r]; 
-  },
-  pol2cart: function(th, r) {
-     const x = math.multiply(r, math.cos(th));
-     const y = math.multiply(r, math.sin(th));
-     return [x, y];
+  // Linear Algebra: RANK
+  rank: function(x) { return calculateMatrixRank(x); },
+
+  // Linear Algebra: SOLVER WITH WARNING
+  solveWithCheck: function(A, b) {
+      // 1. Check Determinant
+      try {
+          const size = A.size();
+          if (size[0] === size[1]) { // If square
+             const d = math.det(A);
+             if (math.abs(d) < 1e-12) {
+                 throw new Error("⚠️ MATRIX IS SINGULAR (det ≈ 0).\n   The system has no unique solution.");
+             }
+          }
+      } catch(e) {
+          if(e.message.includes("SINGULAR")) throw e;
+      }
+      
+      // 2. Attempt Solve
+      try {
+        return math.lusolve(A, b);
+      } catch(e) {
+        throw new Error("Solver failed. Matrix might be singular or dimensions mismatch.");
+      }
   },
 
-  // Units
+  // ─── INDEXING SUPPORT (The Fix for b(1)) ───
+  _get: function(variable, ...indices) {
+      if (!variable) throw new Error("Variable not found.");
+      
+      // Convert 1-based MATLAB indices to 0-based JS indices
+      const jsIndices = indices.map(i => math.round(i) - 1);
+      
+      // Handle Matrix/Array
+      let mat = variable;
+      if (mat.isMatrix) mat = mat.valueOf(); // Get raw array
+
+      try {
+        // CASE 1: 1D Access (x(1)) on Vector
+        if (jsIndices.length === 1) {
+            const idx = jsIndices[0];
+            // If it's a column vector [[1],[2]], flatten it first
+            const flat = mat.flat(Infinity);
+            if (idx < 0 || idx >= flat.length) throw new Error("Index out of bounds");
+            return flat[idx];
+        }
+        
+        // CASE 2: 2D Access (A(1,2))
+        if (jsIndices.length === 2) {
+            const r = jsIndices[0];
+            const c = jsIndices[1];
+            if (!mat[r] || typeof mat[r][c] === 'undefined') throw new Error("Index out of bounds");
+            return mat[r][c];
+        }
+      } catch(e) {
+         throw new Error(`Indexing error: ${e.message}`);
+      }
+      return 0;
+  },
+
+  // Units & Transforms
+  cart2pol: function(x, y) { return [math.atan2(y, x), math.sqrt(math.add(math.square(x), math.square(y)))]; },
+  pol2cart: function(th, r) { return [math.multiply(r, math.cos(th)), math.multiply(r, math.sin(th))]; },
   rad2deg: function(rad) { return math.unit(rad, 'rad').toNumber('deg'); },
   deg2rad: function(deg) { return math.unit(deg, 'deg').toNumber('rad'); },
-  
-  // Angle Wrapping Helpers
-  wrapTo180: function(deg) { 
-    return deg - 360 * math.floor((deg + 180) / 360); 
-  },
-  wrapTo360: function(deg) { 
-    return deg - 360 * math.floor(deg / 360); 
-  },
-  wrapToPi: function(rad) {
-    const PI = math.pi;
-    return rad - 2 * PI * math.floor((rad + PI) / (2 * PI));
-  },
-  wrapTo2Pi: function(rad) {
-    const PI = math.pi;
-    return rad - 2 * PI * math.floor(rad / (2 * PI));
-  }
+  wrapTo180: function(deg) { return deg - 360 * math.floor((deg + 180) / 360); },
+  wrapTo360: function(deg) { return deg - 360 * math.floor(deg / 360); },
+  wrapToPi: function(rad) { const PI = math.pi; return rad - 2 * PI * math.floor((rad + PI) / (2 * PI)); },
+  wrapTo2Pi: function(rad) { const PI = math.pi; return rad - 2 * PI * math.floor(rad / (2 * PI)); }
 }, { override: true });
 
 let scope = {};
 
-// ─── MAIN FUNCTIONS (Global Scope) ───
+// ─── MAIN FUNCTIONS ───
 
 function runCode() {
   const codeInput = document.getElementById('codeInput');
   const terminal = document.getElementById('outputTerminal');
+  if (!codeInput || !terminal) return; 
   
-  if (!codeInput || !terminal) return; // Safety
-  
-  const code = codeInput.value;
-  if (!code.trim()) {
-    terminal.textContent = '⚠️ No code to run!';
-    return;
-  }
+  const rawCode = codeInput.value;
+  if (!rawCode.trim()) { terminal.textContent = '⚠️ No code to run!'; return; }
   
   try {
     terminal.textContent = '⏳ Running...\n\n';
-    const output = executeMatlabCode(code);
+    const output = executeMatlabCode(rawCode);
     terminal.textContent = output;
   } catch (error) {
     terminal.textContent += '\n❌ SYSTEM ERROR:\n' + error.message;
@@ -342,169 +379,124 @@ function clearCode() {
   }
 }
 
-function copyCode() {
-  const code = document.getElementById('codeInput').value;
-  navigator.clipboard.writeText(code);
-  const msg = document.getElementById('successMsg');
-  if(msg) {
-    msg.style.display = 'inline';
-    setTimeout(() => msg.style.display = 'none', 2000);
-  }
-}
-
-// ─── INTERPRETER ENGINE ───
+// ─── INTERPRETER ENGINE V13 ───
 
 function executeMatlabCode(code) {
   let outputBuffer = '';
+
+  // 1. SANITIZATION
+  code = code.replace(/\u00A0/g, " ").replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+  code = code.replace(/([a-zA-Z0-9_\]\)\']+)\s*[\r\n]+\s*=/g, "$1 =");
+
   const lines = code.split('\n');
-  let isSkipping = false; // For IF blocks
+  let isSkipping = false; 
+  let commandAccumulator = ""; 
+  let openBrackets = 0;
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
 
-    // 1. Remove comments
+    // Remove comments
     const commentIndex = line.indexOf('%');
     if (commentIndex !== -1) line = line.substring(0, commentIndex);
     line = line.trim();
     if (!line) continue;
 
-    // 2. Handle System Commands
+    // Commands
     if (line.match(/^clear/i)) { scope = {}; continue; }
     if (line.match(/^clc/i)) { outputBuffer = ''; continue; }
 
-    try {
-      // 3. Control Flow: END
-      if (line === 'end') { 
-         isSkipping = false; 
-         continue; 
-      }
+    // --- ACCUMULATOR ---
+    const opens = (line.match(/\[/g) || []).length;
+    const closes = (line.match(/\]/g) || []).length;
+    
+    if (commandAccumulator === "") { commandAccumulator = line; openBrackets = opens - closes; } 
+    else { commandAccumulator += " " + line; openBrackets += (opens - closes); }
+    
+    if (openBrackets > 0) continue; 
 
-      // 4. Control Flow: IF
-      if (line.startsWith('if ')) {
-         if (isSkipping) continue; // Nested if inside false block remains skipped
-         
-         const condition = line.substring(3).trim();
+    let currentCmd = commandAccumulator;
+    commandAccumulator = ""; 
+    openBrackets = 0;
+
+    // 2. MATRIX HEALER (Insert commas)
+    if (currentCmd.includes('[') && currentCmd.includes(']')) {
+        currentCmd = currentCmd.replace(/\[(.*?)\]/g, (match, content) => {
+            let fixed = content.replace(/([a-zA-Z0-9_\.\)])\s+([a-zA-Z0-9_\.\-\(])/g, "$1, $2");
+            fixed = fixed.replace(/([a-zA-Z0-9_\.\)])\s+([a-zA-Z0-9_\.\-\(])/g, "$1, $2");
+            return `[${fixed}]`;
+        });
+    }
+
+    try {
+      if (currentCmd === 'end') { isSkipping = false; continue; }
+      if (currentCmd.startsWith('if ')) {
+         if (isSkipping) continue;
+         const condition = currentCmd.substring(3).trim();
          const res = math.evaluate(condition, scope);
-         
-         // Check truthy (numbers != 0, true, complex non-zero)
-         let isTrue = false;
-         if (res === true) isTrue = true;
-         else if (typeof res === 'number' && res !== 0) isTrue = true;
-         else if (res && res.isComplex && (res.re !== 0 || res.im !== 0)) isTrue = true;
-         
+         let isTrue = (res === true || (typeof res === 'number' && res !== 0) || (res && res.isComplex && res.re!==0));
          if (!isTrue) isSkipping = true;
          continue;
       }
-
-      // If inside a FALSE block, skip execution
       if (isSkipping) continue;
 
-      // 5. Syntax Translations
+      // 3. TRANSLATION ENGINE (The Magic)
       
-      // Matrix Solver (A \ b -> lusolve(A, b))
-      if (line.includes('\\')) {
-         line = line.replace(/(\w+)\s*\\\s*(\w+)/g, 'lusolve($1, $2)');
+      // A) Solver Syntax: A \ b -> solveWithCheck(A, b)
+      if (currentCmd.includes('\\')) {
+         currentCmd = currentCmd.replace(/([a-zA-Z0-9_]+)\s*\\\s*([a-zA-Z0-9_]+)/g, 'solveWithCheck($1, $2)');
       }
 
-      // Multiple Assignment: [th, r] = cart2pol(...)
-      const multiAssignMatch = line.match(/^\[(.*?)]\s*=\s*(.+)$/);
-      if (multiAssignMatch) {
-         const vars = multiAssignMatch[1].split(',').map(v => v.trim());
-         let expression = multiAssignMatch[2].trim();
-         const silent = expression.endsWith(';');
-         if (silent) expression = expression.slice(0, -1);
-         
-         const result = math.evaluate(expression, scope);
-         
-         if (Array.isArray(result) || (result && result.isMatrix)) {
-            const data = result.valueOf(); // Get raw array if matrix
-            vars.forEach((varName, index) => {
-               if (index < data.length) {
-                 scope[varName] = data[index];
-                 if (!silent) outputBuffer += `${varName} =\n${formatResult(data[index])}\n\n`;
-               }
-            });
-         }
-         continue;
-      }
-
-      // Logical Indexing: theta(theta == -pi) = pi
-      // Regex catches: variable ( condition ) = value
-      const logicIndexMatch = line.match(/^([a-zA-Z0-9_]+)\s*\((.+)\)\s*=\s*(.+)$/);
-      // Ensure it's not a function call or display
-      if (logicIndexMatch && !line.startsWith('disp') && !line.startsWith('fprintf')) {
-          const varName = logicIndexMatch[1];
-          const condStr = logicIndexMatch[2];
-          const rhsStr  = logicIndexMatch[3];
-
+      // B) Indexing Fix: x(1) -> _get(x, 1)
+      // Finds patterns like "word(args)" and checks if "word" is a user variable
+      currentCmd = currentCmd.replace(/([a-zA-Z_]\w*)\s*\(([^)]+)\)/g, (match, varName, args) => {
+          // If this variable exists in our scope (e.g., 'x', 'b'), treat as indexing
+          // BUT ensure we don't break built-in functions like 'real(z)' unless user overwrote them
           if (scope[varName] !== undefined) {
-             // Clean semicolon from RHS
-             let rhsClean = rhsStr.endsWith(';') ? rhsStr.slice(0, -1) : rhsStr;
-             let rhsVal = math.evaluate(rhsClean, scope);
-             let condVal = math.evaluate(condStr, scope);
-             let currVal = scope[varName];
-
-             // Apply logic
-             // 1. If scalar variable
-             if (typeof currVal === 'number' || (currVal && currVal.isComplex)) {
-                if (condVal === true || condVal === 1) {
-                   scope[varName] = rhsVal;
-                }
-             } 
-             // 2. If Matrix/Array
-             else {
-                let valArray = currVal.isMatrix ? currVal.valueOf() : currVal;
-                let condArray = (condVal.isMatrix || Array.isArray(condVal)) ? condVal.valueOf() : condVal;
-                
-                // Ensure arrays match size (simplified check)
-                if (Array.isArray(valArray) && Array.isArray(condArray)) {
-                   // Flatten mapping for 1D arrays
-                   const newValArray = valArray.map((v, idx) => {
-                      return (condArray[idx]) ? rhsVal : v;
-                   });
-                   scope[varName] = currVal.isMatrix ? math.matrix(newValArray) : newValArray;
-                }
-             }
-
-             if (!line.endsWith(';')) {
-                outputBuffer += `${varName} =\n${formatResult(scope[varName])}\n\n`;
-             }
-             continue; // Logic handled, skip standard eval
+              return `_get(${varName}, ${args})`;
           }
-      }
+          return match; // Otherwise leave as function call (e.g., sin(x))
+      });
 
-      // 6. Display Functions
-      if (line.startsWith('disp')) {
-         const match = line.match(/disp\s*\((.*)\)/);
-         if (match) {
-           let content = match[1].trim();
-           // Check if string literal
-           if ((content.startsWith("'") && content.endsWith("'")) || 
-               (content.startsWith('"') && content.endsWith('"'))) {
-               outputBuffer += content.slice(1, -1) + '\n';
-           } else {
-               outputBuffer += formatResult(math.evaluate(content, scope)) + '\n';
-           }
+      // 4. MULTIPLE ASSIGNMENT
+      const multiAssignMatch = currentCmd.match(/^\[(.*?)]\s*=\s*(.+)$/);
+      if (multiAssignMatch && !currentCmd.includes('=' + '\s*\[')) { 
+         const vars = multiAssignMatch[1].split(',').map(v => v.trim());
+         let expr = multiAssignMatch[2].trim();
+         const silent = expr.endsWith(';');
+         if (silent) expr = expr.slice(0, -1);
+         const res = math.evaluate(expr, scope);
+         if (Array.isArray(res) || (res && res.isMatrix)) {
+            const data = res.valueOf(); 
+            vars.forEach((v, k) => { if(k < data.length) { scope[v] = data[k]; if(!silent) outputBuffer += `${v} =\n${formatResult(data[k])}\n\n`; }});
          }
          continue;
       }
-      if (line.startsWith('fprintf')) continue; // Ignore fprintf
 
-      // 7. Standard Math Evaluation
-      const suppressOutput = line.endsWith(';');
-      if (suppressOutput) line = line.slice(0, -1);
+      // 5. EVALUATION
+      if (currentCmd.startsWith('disp')) {
+         const m = currentCmd.match(/disp\s*\((.*)\)/);
+         if (m) {
+           let c = m[1].trim();
+           if (c.startsWith("'") || c.startsWith('"')) outputBuffer += c.slice(1, -1) + '\n';
+           else outputBuffer += formatResult(math.evaluate(c, scope)) + '\n';
+         }
+         continue;
+      }
 
-      const result = math.evaluate(line, scope);
+      const suppressOutput = currentCmd.endsWith(';');
+      if (suppressOutput) currentCmd = currentCmd.slice(0, -1);
+
+      const result = math.evaluate(currentCmd, scope);
 
       if (!suppressOutput && result !== undefined) {
-        // Try to guess variable name from "x = ..."
-        const assignMatch = line.match(/^(\w+)\s*=/);
+        const assignMatch = currentCmd.match(/^(\w+)\s*=/);
         const varName = assignMatch ? assignMatch[1] : 'ans';
         outputBuffer += `${varName} =\n${formatResult(result)}\n\n`;
       }
 
     } catch (e) {
-      outputBuffer += `❌ Error on line: "${line}"\n   ${e.message}\n\n`;
+      outputBuffer += `❌ ERROR:\n   ${e.message}\n\n`;
     }
   }
   
@@ -512,39 +504,50 @@ function executeMatlabCode(code) {
   return outputBuffer;
 }
 
-// ─── HELPER: FORMATTING ───
+// ─── HELPERS ───
+function calculateMatrixRank(m) {
+    if (!m) return 0;
+    let mat = m.isMatrix ? m.clone() : math.matrix(m);
+    let size = mat.size();
+    let rows = size[0]; let cols = size[1];
+    let A = mat.valueOf(); if (!Array.isArray(A[0])) A = [A]; 
+    let rank = 0; const TOL = 1e-12;
+    for (let j = 0; j < cols && rank < rows; j++) {
+        let pRow = rank; let maxVal = 0;
+        for (let i = rank; i < rows; i++) { let v = math.abs(A[i][j]); if (v > maxVal) { maxVal = v; pRow = i; }}
+        if (maxVal < TOL) continue; 
+        let t = A[rank]; A[rank] = A[pRow]; A[pRow] = t;
+        let pVal = A[rank][j];
+        for (let k = j; k < cols; k++) { A[rank][k] = math.divide(A[rank][k], pVal); }
+        for (let i = 0; i < rows; i++) {
+            if (i !== rank) {
+                let f = A[i][j];
+                if (math.abs(f) > TOL) { for (let k = j; k < cols; k++) { A[i][k] = math.subtract(A[i][k], math.multiply(f, A[rank][k])); }}
+            }
+        }
+        rank++;
+    }
+    return rank;
+}
+
 function formatResult(val) {
   if (val === undefined) return 'undefined';
-  
-  // Complex Numbers
   if (val && val.isComplex) {
-    const re = val.re;
-    const im = val.im;
+    const re = val.re; const im = val.im;
     if (Math.abs(im) < 1e-10) return re.toFixed(4);
     if (Math.abs(re) < 1e-10) return `${im.toFixed(4)}i`;
     return `${re.toFixed(4)} ${im >= 0 ? '+' : '-'} ${Math.abs(im).toFixed(4)}i`;
   }
-
-  // Matrices / Arrays
   if (val && (val.isMatrix || Array.isArray(val))) {
      const data = val.valueOf(); 
-     if (Array.isArray(data[0])) { // 2D Array
-       return data.map(row => '   ' + row.map(v => formatResult(v).padStart(10)).join('  ')).join('\n');
-     }
+     if (Array.isArray(data[0])) return data.map(row => '   ' + row.map(v => formatResult(v).padStart(10)).join('  ')).join('\n');
      return '   ' + data.map(v => formatResult(v).padStart(10)).join('\n   ');
   }
-
-  // Numbers
   if (typeof val === 'number') return val.toFixed(4);
-  
-  // Boolean / Other
   return val.toString();
 }
 
-// ─── INIT ───
-window.onload = function() {
-  document.getElementById('codeInput').focus();
-};
+    // **********************JALEL JS SCRIPT ENDs HERE
   </script>
 </body>
 </html>
