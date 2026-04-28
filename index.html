@@ -184,62 +184,82 @@
     <div class="reference-content">% ****** EE98 EXAM CALCULATOR to the RESCUE!**********************  
 %                       Author: Jalel Rejeb, Spring 2026  
 % *****************************************************************
-% ------PART 1: DC Circuits---------
-%====================================
-   % 1. Voltage Division (vd)
-R1=10; R2 = 30; R3 = 20;  Vs = 10; Is = 5;  
-V_R2 = (R2*Vs)/(R1+ R2)
-   % 2. Current Division (cd)
-   I_R2= (Is*R1)/(R1+R2)
-   
-   % Req for R1//R2
-   Req = R1*R2/(R1+R2)
-   
-   % Req for R1//R2//R3 
-   Req =1/(1/R1 +1/R2+ 1/R3)  
- 
-   % 3. MATRIX SOLVER (Nodal/Mesh…) 
-A = [ 10, -5; -5, 15 ];   % Coefficients
-rank_A= rank(A);    % checks how many independent equations  
-det_A = det(A);     % if det(A) == 0 -> not a unique solution (could be none or infinite)    
-b = [ 10; 5 ];            % Sources
-x = A \ b                 % RESULT: Circuit Unknowns
-% ==========================================
-% --- PART 2: AC CIRCUITS & COMPLEX NUMBERS ---
-% ==========================================
-% 1 . Complex Number Arithmetic
-j = 1i;             % Define j 
-z= complex(2, -8);  % z = 2 -j8
-% or without the function complex() 
-z= 2 -8*j
-z_real = real(z)    % real part
-z_imag= imag(z)     % imaginary part
-z_mag = abs(z)      % magnitude |z|
-z_angle = angle(z)  % angle (radians by default)
-% obtain the phasor X of signal x(t) = 5 cos(377t + 40 )  , assume 40 degree
-  theta_rad = 40*pi/180  % conver to to radian or use deg2rad(40) (see bnelow) 
- X = 5 * exp(j*theta_rad)     % note: as indicated  in class, phasor is simply the exponential form.
-  % same result if  use :  X = 5*cos(theta_rad) + j*5*sin(theta_rad)   %  or use pol2cart(,) see below 
-%% builting function       
-% given real (z)  and  imag(z)  convert to ploar example z = 2 - j 8       
-[theta, rho] = cart2pol(real(z), imag(z)); 
- [theta, rho] = cart2pol(2, -8);      
-% Convert back to Cartesian
+       % ------ PART 1: DC CIRCUITS ------
+% =================================
+
+R1 = 10; R2 = 30; R3 = 20;
+Vs = 10; Is = 5;
+
+% 1) Voltage divider: voltage across R2 in series
+V_R2 = Vs * R2 / (R1 + R2);
+
+% 2) Current divider: current through R2 in parallel
+I_R2 = Is * R1 / (R1 + R2);
+
+% Equivalent resistance
+Req12  = R1 * R2 / (R1 + R2);              % R1 || R2
+Req123 = 1 / (1/R1 + 1/R2 + 1/R3);         % R1 || R2 || R3
+
+% 3) Matrix solver (nodal/mesh)
+A = [10 -5; -5 15];                        % coefficient matrix
+b = [10; 5];                               % source vector
+rank_A = rank(A);                          % number of independent equations
+det_A  = det(A);                           % det(A) ~= 0 => unique solution
+x = A \ b;                                 % circuit unknowns
+
+% ------ PART 2: AC CIRCUITS & COMPLEX NUMBERS ------
+% ===================================================
+
+j = i;                                     % define j
+
+% 1) Complex-number arithmetic
+z = complex(2, -8);                        % z = 2 - j8
+z = 2 - 8*j;                               % same result
+
+z_real  = real(z);                         % real part
+z_imag  = imag(z);                         % imaginary part
+z_mag   = abs(z);                          % magnitude |z|
+z_angle = angle(z);                        % phase angle (radians)
+
+% Phasor of v(t) = 5 cos(377t + 40 deg)
+theta_deg = 40;
+theta_rad = deg2rad(theta_deg);
+% or also without using the function deg2rad()
+heta_rad = 40*pi/180 ;
+V = 5 * exp(j * theta_rad);    %  as mentioned in class a phasor in exponential form
+
+% Same  above  but directly in rectangular form:
+% V = 5*cos(theta_rad) + j*5*sin(theta_rad);
+
+% Cartesian to polar
+[theta, rho] = cart2pol(real(z), imag(z));
+% or:
+% [theta, rho] = cart2pol(2, -8);
+
+% Polar to Cartesian
 [x_val, y_val] = pol2cart(theta, rho);
-% Angle Conversions
-theta_deg = rad2deg(theta)
-theta_rad = deg2rad(theta_deg)
-% Wrapping Angles
-theta_in = wrapTo360(theta_deg)  % [0, 360] 
-theta_in = wrapTo180(theta_deg)  % [-180, 180] 
-theta_in = wrapToPi(theta_rad)   % [-pi, pi] 
-theta_in = wrapTo2Pi(theta_rad)  % [0, 2pi]
-theta_in(theta_in == pi) = -pi   %  to make sure angle [-pi,pi) 
-% 2. Impedance Formulas (Zeq) 
+
+% Angle conversion
+theta_deg = rad2deg(theta);  % from rad --> deg
+% or also without using the function rad2deg()  
+theta_deg = theta*180/pi ;    
+theta_rad = deg2rad(theta_deg);  % from deg --> rad
+
+% Angle wrapping
+theta_360 = wrapTo360(theta_deg);          % [0, 360]
+theta_180 = wrapTo180(theta_deg);          % [-180, 180]
+theta_pi  = wrapToPi(theta_rad);           % [-pi, pi]
+theta_2pi = wrapTo2Pi(theta_rad);          % [0, 2*pi]
+
+% 2) Impedance formulas,  example from class notes
 w = 2; L = 2; C = 0.5; R = 1;
-Z_L = j*w*L;
-Z_C = 1/(j*w*C); 
-Zeq = Z_L + (Z_C * 1 / (1 + Z_C)) 
+
+Z_L = j * w * L;
+Z_C = 1 / (j * w * C);
+Zeq = Z_L + (R * Z_C) / (R + Z_C);         % Z_L in series with (R || Z_C)
+
+% Ohm's law in phasor form
+I = V / Zeq;                               % current phasor (complex number)
 </div>
   </details>
   
