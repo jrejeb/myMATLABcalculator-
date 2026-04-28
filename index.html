@@ -196,7 +196,7 @@ V_R2 = (R2*Vs)/(R1+ R2)
    Req = R1*R2/(R1+R2)
    
    % Req for R1//R2//R3 
-   Req =1/(1/R1 +1/R2+ 1/R3) 
+   Req =1/(1/R1 +1/R2+ 1/R3)  
  
    % 3. MATRIX SOLVER (Nodal/Mesh…) 
 A = [ 10, -5; -5, 15 ];   % Coefficients
@@ -210,12 +210,20 @@ x = A \ b                 % RESULT: Circuit Unknowns
 % 1 . Complex Number Arithmetic
 j = 1i;             % Define j 
 z= complex(2, -8);  % z = 2 -j8
+% or without the function complex() 
+z= 2 -8*j
 z_real = real(z)    % real part
 z_imag= imag(z)     % imaginary part
 z_mag = abs(z)      % magnitude |z|
-z_angle = angle(z)  % angle (radians)
-% Convert to Polar 
+z_angle = angle(z)  % angle (radians by default)
+% obtain the phasor X of signal x(t) = 5 cos(377t + 40 )  , assume 40 degree
+  theta_rad = 40*pi/180  % conver to to radian or use deg2rad(40) (see bnelow) 
+ X = 5 * exp(j*theta_rad)     % note: as indicated  in class, phasor is simply the exponential form.
+  % same result if  use :  X = 5*cos(theta_rad) + j*5*sin(theta_rad)   %  or use pol2cart(,) see below 
+%% builting function       
+% given real (z)  and  imag(z)  convert to ploar example z = 2 - j 8       
 [theta, rho] = cart2pol(real(z), imag(z)); 
+ [theta, rho] = cart2pol(2, -8);      
 % Convert back to Cartesian
 [x_val, y_val] = pol2cart(theta, rho);
 % Angle Conversions
